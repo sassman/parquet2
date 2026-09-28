@@ -105,17 +105,12 @@ fn _get_page_stream<R: AsyncRead + Unpin + Send>(
             }
 
             // followed by the buffer
-            scratch.clear();
-            scratch.try_reserve(read_size)?;
-            let bytes_read = reader
-                .take(read_size as u64)
-                .read_to_end(&mut scratch).await?;
-
-            if bytes_read != read_size {
-                Err(Error::oos(
-                    "The page header reported the wrong page size".to_string(),
-                ))?
-            }
+            // scratch gets taken by the decompression later,
+            // so not real point in initializing only spare capacity
+            scratch.resize(read_size, 0);
+            reader.read_exact(&mut scratch).await.map_err(|_| (Error::oos(
+                "The page header reported the wrong page size".to_string(),
+            )))?;
 
             yield finish_page(
                 page_header,
